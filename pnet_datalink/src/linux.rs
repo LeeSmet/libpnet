@@ -65,6 +65,9 @@ pub struct Config {
 
     /// Promiscuous mode.
     pub promiscuous: bool,
+
+    /// Parse ancillary data.
+    pub ancillary: bool,
 }
 
 impl<'a> From<&'a super::Config> for Config {
@@ -77,6 +80,7 @@ impl<'a> From<&'a super::Config> for Config {
             write_timeout: config.write_timeout,
             fanout: config.linux_fanout,
             promiscuous: config.promiscuous,
+            ancillary: config.ancillary,
         }
     }
 }
@@ -91,6 +95,7 @@ impl Default for Config {
             channel_type: super::ChannelType::Layer2,
             fanout: None,
             promiscuous: true,
+            ancillary: true,
         }
     }
 }
@@ -134,6 +139,28 @@ pub fn channel(network_interface: &NetworkInterface, config: Config) -> io::Resu
                 linux::PACKET_ADD_MEMBERSHIP,
                 (&pmr as *const linux::packet_mreq) as *const libc::c_void,
                 mem::size_of::<linux::packet_mreq>() as libc::socklen_t,
+            )
+        } == -1
+        {
+            let err = io::Error::last_os_error();
+            unsafe {
+                pnet_sys::close(socket);
+            }
+            return Err(err);
+        }
+    }
+
+    // Enable ancillary data
+    if config.ancillary {
+        println!("enable ancillary data");
+        let val: libc::c_int = 1;
+        if unsafe {
+            libc::setsockopt(
+                socket,
+                linux::SOL_PACKET,
+                linux::PACKET_AUXDATA,
+                (&val as *const libc::c_int) as *const libc::c_void,
+                mem::size_of::<libc::c_int>() as libc::socklen_t,
             )
         } == -1
         {
@@ -359,7 +386,8 @@ impl DataLinkReceiver for DataLinkReceiverImpl {
         } else if ret == 0 {
             Err(io::Error::new(io::ErrorKind::TimedOut, "Timed out"))
         } else {
-            let res = pnet_sys::recv_from(self.socket.fd, &mut self.read_buffer, &mut caddr);
+            // let res = pnet_sys::recv_from(self.socket.fd, &mut self.read_buffer, &mut caddr);
+            let res = pnet_sys::recv_msg(self.socket.fd, &mut self.read_buffer, &mut caddr);
             match res {
                 Ok(len) => Ok(&self.read_buffer[0..len]),
                 Err(e) => Err(e),

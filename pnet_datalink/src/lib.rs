@@ -47,12 +47,23 @@ pub mod linux;
 
 #[cfg(all(
     not(feature = "netmap"),
-    any(target_os = "freebsd", target_os = "openbsd", target_os = "netbsd", target_os = "macos", target_os = "ios")
+    any(
+        target_os = "freebsd",
+        target_os = "openbsd",
+        target_os = "netbsd",
+        target_os = "macos",
+        target_os = "ios"
+    )
 ))]
 #[path = "bpf.rs"]
 mod backend;
 
-#[cfg(any(target_os = "freebsd", target_os = "netbsd", target_os = "macos", target_os = "ios"))]
+#[cfg(any(
+    target_os = "freebsd",
+    target_os = "netbsd",
+    target_os = "macos",
+    target_os = "ios"
+))]
 pub mod bpf;
 
 #[cfg(feature = "netmap")]
@@ -151,6 +162,8 @@ pub struct Config {
     pub linux_fanout: Option<FanoutOption>,
 
     pub promiscuous: bool,
+
+    pub ancillary: bool,
 }
 
 impl Default for Config {
@@ -164,6 +177,7 @@ impl Default for Config {
             bpf_fd_attempts: 1000,
             linux_fanout: None,
             promiscuous: true,
+            ancillary: true,
         }
     }
 }

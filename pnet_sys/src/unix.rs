@@ -28,6 +28,21 @@ pub mod public {
     pub type InAddr = libc::in_addr;
     pub type In6Addr = libc::in6_addr;
 
+    pub type MsgHdr = libc::msghdr;
+    pub type IOVec = libc::iovec;
+    pub type CMsgHdr = libc::cmsghdr;
+
+    // man packet(7)
+    pub struct TpacketAuxdata {
+        pub tp_status: libc::c_uint,
+        pub tp_len: libc::c_uint,     // packet length
+        pub tp_snaplen: libc::c_uint, // captured length
+        pub tp_mac: libc::c_ushort,
+        pub tp_net: libc::c_ushort,
+        pub tp_vlan_tci: libc::c_ushort,
+        pub tp_vlan_tpid: libc::c_ushort,
+    }
+
     #[cfg(not(any(target_os = "macos", target_os = "ios", target_os = "netbsd")))]
     pub type TvUsecType = libc::c_long;
     #[cfg(any(target_os = "macos", target_os = "ios", target_os = "netbsd"))]
@@ -47,6 +62,10 @@ pub mod public {
 
     pub const IPPROTO_IPV6: libc::c_int = libc::IPPROTO_IPV6;
     pub const IPV6_UNICAST_HOPS: libc::c_int = libc::IPV6_UNICAST_HOPS;
+    pub const MSG_EOR: libc::c_int = libc::MSG_EOR;
+    pub const MSG_OOB: libc::c_int = libc::MSG_OOB;
+    pub const MSG_TRUNC: libc::c_int = libc::MSG_TRUNC;
+    pub const MSG_CTRUNC: libc::c_int = libc::MSG_CTRUNC;
 
     pub use super::libc::{IFF_BROADCAST, IFF_LOOPBACK, IFF_MULTICAST, IFF_POINTOPOINT, IFF_UP};
 
@@ -233,6 +252,10 @@ pub unsafe fn recvfrom(
     addrlen: *mut SockLen,
 ) -> CouldFail {
     libc::recvfrom(socket, buf, len, flags, addr, addrlen)
+}
+
+pub unsafe fn recvmsg(socket: CSocket, msg: *mut MsgHdr, flags: libc::c_int) -> CouldFail {
+    libc::recvmsg(socket, msg, flags)
 }
 
 #[inline]

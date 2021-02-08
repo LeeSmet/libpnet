@@ -83,6 +83,76 @@ pub fn recv_from(
     }
 }
 
+pub fn recv_msg(
+    socket: CSocket,
+    buffer: &mut [u8],
+    caddr: *mut SockAddrStorage,
+) -> io::Result<usize> {
+    let caddrlen = mem::size_of::<SockAddrStorage>() as SockLen;
+    let mut iov = IOVec {
+        iov_base: buffer as *mut [u8] as *mut libc::c_void, // TODO
+        iov_len: buffer.len(),
+    };
+
+    let mut cmsg_buffer = [0u8; 1024];
+
+    let mut msgh = MsgHdr {
+        msg_name: caddr as *mut SockAddr as *mut libc::c_void,
+        msg_namelen: caddrlen,
+        msg_iov: &mut iov as *mut IOVec,
+        msg_iovlen: 1,
+        msg_control: (&mut cmsg_buffer as *mut [u8]) as *mut libc::c_void,
+        msg_controllen: cmsg_buffer.len(),
+        msg_flags: 0, // ignored in input, check output
+    };
+
+    let len = imp::retry(&mut || unsafe { imp::recvmsg(socket, &mut msgh as *mut MsgHdr, 0) });
+
+    if len < 0 {
+        Err(io::Error::last_os_error())
+    } else {
+        // parse cmsg buffers
+        let mut cbuf = &cmsg_buffer[..msgh.msg_controllen];
+        let hdr_size = mem::size_of::<CMsgHdr>();
+        println!("{}", hdr_size);
+        while cbuf.len() >= hdr_size {
+            println!("cmsg:");
+            // NOTE: this does not work let hdr = unsafe { mem::transmute::<_, CMsgHdr>(&cbuf[..hdr_size]) };
+            let hdr = unsafe { &*(&cbuf[..hdr_size] as *const [u8] as *const CMsgHdr) };
+            println!("\tdata length: {}", hdr.cmsg_len);
+            println!("\taligned data length: {}", align(hdr.cmsg_len));
+            println!("\tlevel: {}", hdr.cmsg_level);
+            println!("\ttype: {}", hdr.cmsg_type);
+            // if hdr.cmsg_level == SOL_PACKET && hdr.cmsg_type == PACKET_AUXDATA {
+            // TODO: interpret data
+            let data = unsafe {
+                &*((&cbuf[hdr_size..hdr_size + mem::size_of::<TpacketAuxdata>()] as *const [u8])
+                    as *const TpacketAuxdata)
+            };
+            println!("auxdata:");
+            println!("\ttp_status: {}", data.tp_status);
+            println!("\ttp_len: {}", data.tp_len);
+            println!("\ttp_snaplen: {}", data.tp_snaplen);
+            println!("\ttp_mac: {}", data.tp_mac);
+            println!("\ttp_net: {}", data.tp_net);
+            println!("\ttp_vlan_tci: {}", data.tp_vlan_tci);
+            println!("\ttp_vlan_tpid: {}", data.tp_vlan_tpid);
+            // }
+            // remove cmsg from buffer
+            if hdr.cmsg_len > cbuf.len() {
+                break;
+            }
+            cbuf = &cbuf[align(hdr.cmsg_len)..];
+        }
+        Ok(len as usize)
+    }
+}
+
+// align a given lenght for the current OS
+fn align(len: usize) -> usize {
+    (len + mem::size_of::<usize>() - 1) & !(mem::size_of::<usize>() - 1)
+}
+
 /// Set a timeout for receiving from the socket.
 #[cfg(unix)]
 pub fn set_socket_receive_timeout(socket: CSocket, t: Duration) -> io::Result<()> {

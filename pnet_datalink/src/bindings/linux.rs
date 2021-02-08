@@ -24,9 +24,11 @@ pub const PACKET_FANOUT_QM: libc::c_int = 5;
 pub const PACKET_FANOUT_CBPF: libc::c_int = 6;
 pub const PACKET_FANOUT_EBPF: libc::c_int = 7;
 pub const PACKET_FANOUT_FLAG_ROLLOVER: libc::c_uint = 0x1000;
+pub const PACKET_AUXDATA: libc::c_int = 8;
 #[allow(dead_code)] // following flag is unused yet
 pub const PACKET_FANOUT_FLAG_UNIQUEID: libc::c_uint = 0x2000;
 pub const PACKET_FANOUT_FLAG_DEFRAG: libc::c_uint = 0x8000;
+pub const PACKET_ANC_VLAN: libc::c_uint = 0x8100; // ETH_P_8021Q
 
 // man 7 packet
 pub struct packet_mreq {
